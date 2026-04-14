@@ -63,34 +63,76 @@ newtype Year  = Year  Int deriving (Show, Eq)
 -- Failed [PosError 2 (Unexpected '/'),PosError 0 (Unexpected '1')]
 --
 date :: Parser Date
-date = dotFormat <|> hyphenFormat <|> usFormat
+date = 
+  dotFormat 
+  <|> hyphenFormat 
+  <|> usFormat
 
 dotFormat :: Parser Date
-dotFormat = Date <$> day <* char '.' <*> month <* char '.' <*> year
+dotFormat = 
+  Date 
+  <$> day <* char '.' 
+  <*> month <* char '.' 
+  <*> year
 
 hyphenFormat :: Parser Date
-hyphenFormat = Date <$> day <* char '-' <*> month <* char '-' <*> year
+hyphenFormat = 
+  Date 
+  <$> day <* char '-'
+  <*> month <* char '-' 
+  <*> year
 
 usFormat :: Parser Date
-usFormat = flip Date <$> monthName <* char ' ' <*> usDay <* char ' ' <*> year
+usFormat = 
+  flip Date 
+  <$> monthName <* char ' ' 
+  <*> usDay <* char ' ' 
+  <*> year
 
 
 day :: Parser Day
-day = char '0' *> (Day <$> nonZeroDigit) <|> char '1' *> (Day . (10+) <$> digit) <|> char '2' *> (Day . (20+) <$> digit) <|> Day . fromIntegral . digitsToInt <$> string "30" <|> Day . fromIntegral . digitsToInt <$> string "31"
+day = 
+  char '0' *> (Day <$> nonZeroDigit) 
+  <|> char '1' *> (Day . (10+) <$> digit) 
+  <|> char '2' *> (Day . (20+) <$> digit) 
+  <|> Day . fromIntegral . digitsToInt <$> string "30" 
+  <|> Day . fromIntegral . digitsToInt <$> string "31"
 
 usDay :: Parser Day
-usDay =  char '1' *> (Day . (10+) <$> digit) <|> char '2' *> (Day . (20+) <$> digit) <|> Day . fromIntegral . digitsToInt <$> string "30" <|> Day . fromIntegral . digitsToInt <$> string "31" <|> (Day <$> nonZeroDigit)
+usDay =  
+  char '1' *> (Day . (10+) <$> digit) 
+  <|> char '2' *> (Day . (20+) <$> digit) 
+  <|> Day . fromIntegral . digitsToInt <$> string "30" 
+  <|> Day . fromIntegral . digitsToInt <$> string "31" 
+  <|> (Day <$> nonZeroDigit)
 
 
 month :: Parser Month
-month = char '0' *> (Month <$> nonZeroDigit) <|> Month . fromIntegral . digitsToInt <$> string "10" <|> Month . fromIntegral . digitsToInt <$> string "11" <|> Month . fromIntegral . digitsToInt <$> string "12"
+month = 
+  char '0' *> (Month <$> nonZeroDigit) 
+  <|> Month . fromIntegral . digitsToInt <$> string "10" 
+  <|> Month . fromIntegral . digitsToInt <$> string "11" 
+  <|> Month . fromIntegral . digitsToInt <$> string "12"
 
 
 year :: Parser Year
 year = Year <$> number
 
 monthName :: Parser Month
-monthName = strToMonth <$> string "Jan" <|> strToMonth <$> string "Feb" <|> strToMonth <$> string "Mar" <|> strToMonth <$> string "Apr" <|> strToMonth <$> string "May" <|> strToMonth <$> string "Jun" <|> strToMonth <$> string "Jul" <|> strToMonth <$> string "Aug" <|> strToMonth <$> string "Sep" <|> strToMonth <$> string "Oct" <|> strToMonth <$> string "Nov" <|> strToMonth <$> string "Dec"
+monthName = 
+  strToMonth 
+  <$> string "Jan" 
+  <|> strToMonth <$> string "Feb" 
+  <|> strToMonth <$> string "Mar" 
+  <|> strToMonth <$> string "Apr" 
+  <|> strToMonth <$> string "May" 
+  <|> strToMonth <$> string "Jun" 
+  <|> strToMonth <$> string "Jul" 
+  <|> strToMonth <$> string "Aug" 
+  <|> strToMonth <$> string "Sep"
+  <|> strToMonth <$> string "Oct" 
+  <|> strToMonth <$> string "Nov" 
+  <|> strToMonth <$> string "Dec"
 
 strToMonth :: String -> Month
 strToMonth s = Month $ case s of
