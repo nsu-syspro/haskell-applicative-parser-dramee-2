@@ -21,6 +21,7 @@ module Parser
   ) where
 
 import Control.Applicative
+import Data.List (nub)
 
 -- | Value annotated with position of parsed input starting from 0
 data Position a = Position Int a
@@ -33,6 +34,8 @@ type Input = Position String
 data Error =
     Unexpected Char -- ^ Unexpected character
   | EndOfInput      -- ^ Unexpected end of input
+  | EmptyParser     -- ^ Parser that always fails without consuming input
+
  deriving (Show, Eq)
 
 -- | Parsing result of value of type @a@
@@ -46,23 +49,42 @@ newtype Parser a = Parser { runParser :: Input -> Parsed a }
 
 -- | Runs given 'Parser' on given input string
 parse :: Parser a -> String -> Parsed a
-parse = error "TODO: define parse"
+parse parser str = runParser parser (Position 0 str)
 
 -- | Runs given 'Parser' on given input string with erasure of @Parsed a@ to @Maybe a@
 parseMaybe :: Parser a -> String -> Maybe a
-parseMaybe = error "TODO: define parseMaybe"
+parseMaybe parser str = case parse parser str of
+  Parsed a _ -> Just a
+  Failed _ -> Nothing
 
 instance Functor Parser where
-  fmap = error "TODO: define fmap (Parser)"
+  fmap f parserA = Parser g where
+    g input = case runParser parserA input of
+      Parsed x rest -> Parsed (f x) rest
+      Failed errs -> Failed errs
 
 instance Applicative Parser where
-  pure = error "TODO: define pure (Parser)"
-  (<*>) = error " TODO: define <*> (Parser)"
+  pure x = Parser $ \input -> Parsed x input
+  (<*>) parserF parserA = Parser g where
+    g input = case runParser parserF input of
+      Parsed f rest -> case runParser parserA rest of
+        Parsed x rest' -> Parsed (f x) rest'
+        Failed errs -> Failed errs
+      Failed errs -> Failed errs
 
 instance Alternative Parser where
-  empty = error "TODO: define empty (Parser)"
+  empty = Parser $ \_ -> Failed [Position 0 EmptyParser]
   -- Note: when both parsers fail, their errors are accumulated and *deduplicated* to simplify debugging
-  (<|>) = error " TODO: define <|> (Parser)"
+  (<|>) parserA parserB = Parser g where
+    g input = case runParser parserA input of
+      Parsed x rest -> Parsed x rest
+      Failed errsA -> case runParser parserB input of
+        Parsed x rest -> Parsed x rest
+        Failed errsB -> Failed (concatErrors errsA errsB) where
+          concatErrors :: [Position Error] -> [Position Error] -> [Position Error]
+          concatErrors [Position 0 EmptyParser] errs = nub errs
+          concatErrors errs [Position 0 EmptyParser] = nub errs
+          concatErrors errsA' errsB' = nub (errsA' ++ errsB')
 
 -- | Parses single character satisfying given predicate
 --
@@ -78,4 +100,9 @@ instance Alternative Parser where
 -- Failed [Position 0 EndOfInput]
 --
 satisfy :: (Char -> Bool) -> Parser Char
-satisfy = error "TODO: define satisfy"
+satisfy predicate = Parser g where
+  g (Position pos str) = case str of
+    [] -> Failed [Position pos EndOfInput]
+    (c:cs) -> if predicate c
+      then Parsed c (Position (pos + 1) cs)
+      else Failed [Position pos (Unexpected c)]

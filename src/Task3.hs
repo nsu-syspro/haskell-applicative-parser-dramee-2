@@ -4,8 +4,12 @@
 module Task3 where
 
 import Parser
-import Data.Char (toLower)
+import Data.Char (toLower, isDigit)
 import Data.List (intercalate)
+import ParserCombinators (char, string)
+import Control.Applicative ((<|>), optional, Alternative (some), many)
+import Data.Maybe
+import Data.Functor (($>))
 
 -- | JSON representation
 --
@@ -38,7 +42,111 @@ data JValue =
 -- Failed [PosError 0 (Unexpected '{'),PosError 1 (Unexpected '{')]
 --
 json :: Parser JValue
-json = error "TODO: define json"
+json = ws *> value <* ws
+
+value :: Parser JValue
+value =
+      parseNull
+  <|> parseBool
+  <|> parseNumber
+  <|> parseString
+  <|> parseArray
+  <|> parseObject
+
+-- null
+parseNull :: Parser JValue
+parseNull = JNull <$ string "null"
+
+-- bool
+parseBool :: Parser JValue
+parseBool =
+      (JBool True <$ string "true")
+  <|> (JBool False <$ string "false")
+
+-- number (с дробью и экспонентой)
+parseNumber :: Parser JValue
+parseNumber = do
+  JNumber . read <$> numberString
+
+numberString :: Parser String
+numberString =
+  (\sign intPart fracPart expPart -> concat $
+    [maybe "" (:[]) sign, intPart]
+    ++ maybeToList fracPart
+    ++ maybeToList expPart)
+  <$> optional (char '-')
+  <*> int
+  <*> optional fraction
+  <*> optional exponentPart
+
+int :: Parser String
+int =
+      (:) <$> char '0' <*> pure ""
+  <|> (:) <$> satisfy (\c -> c >= '1' && c <= '9') <*> many (satisfy isDigit)
+
+fraction :: Parser String
+fraction =
+  (:) <$> char '.' <*> some (satisfy isDigit)
+
+exponentPart :: Parser String
+exponentPart =
+  (\e sign digits -> e : maybe "" (:[]) sign ++ digits)
+    <$> satisfy (\c -> c == 'e' || c == 'E')
+    <*> optional (satisfy (\c -> c == '+' || c == '-'))
+    <*> some (satisfy isDigit)
+
+-- string (с escape)
+parseString :: Parser JValue
+parseString =
+  JString . concat <$>
+    (char '"' *> many stringChunk <* char '"')
+
+stringChunk :: Parser String
+stringChunk =
+      escapeChunk
+  <|> ((:[]) <$> satisfy (\c -> c /= '"' && c /= '\\'))
+
+escapeChunk :: Parser String
+escapeChunk =
+  (\c -> ['\\', c]) <$>
+    (char '\\' *> satisfy (`elem` "\"\\/bfnrt"))
+
+-- array
+parseArray :: Parser JValue
+parseArray = JArray <$> (char '[' *> ws *> elements <* ws <* char ']')
+
+elements :: Parser [JValue]
+elements =
+      (value `sepBy` (ws *> char ',' <* ws))
+  <|> pure []
+
+-- object
+parseObject :: Parser JValue
+parseObject = JObject <$> (char '{' *> ws *> members <* ws <* char '}')
+
+members :: Parser [(String, JValue)]
+members =
+      (pair `sepBy` (ws *> char ',' <* ws))
+  <|> pure []
+
+pair :: Parser (String, JValue)
+pair =
+  (\keyVal _ val -> case keyVal of
+      JString key -> (key, val)
+      _ -> error "parseString should always return JString")
+    <$> parseString
+    <*> (ws *> char ':' *> ws)
+    <*> value
+
+-- whitespace
+ws :: Parser ()
+ws = many (satisfy (`elem` " \n\r\t")) $> ()
+
+-- sepBy (если нет в Parser.hs)
+sepBy :: Parser a -> Parser sep -> Parser [a]
+sepBy p sep =
+      (:) <$> p <*> many (sep *> p)
+  <|> pure []
 
 -- * Rendering helpers
 
