@@ -4,6 +4,9 @@
 module Task1 where
 
 import Parser
+import Data.Char (isDigit, digitToInt)
+import Control.Applicative (Alternative(..))
+import ParserCombinators
 
 -- | Parses natural number (including zero)
 --
@@ -20,8 +23,16 @@ import Parser
 -- >>> parse nat "123abc"
 -- Parsed 123 (Input 3 "abc")
 --
+
+digit :: Parser Char
+digit = satisfy isDigit
+
+
 nat :: Parser Integer
-nat = error "TODO: define nat"
+nat = digitsToInt <$> some digit
+
+digitsToInt :: String -> Integer
+digitsToInt = foldl (\ acc c -> acc * 10 + toInteger (digitToInt c)) 0
 
 -- | Parses integer number
 --
@@ -39,4 +50,4 @@ nat = error "TODO: define nat"
 -- Parsed 123 (Input 3 "abc")
 --
 int :: Parser Integer
-int = error "TODO: define int"
+int = negate <$> (char '-' *> nat) <|> nat
